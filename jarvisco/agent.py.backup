@@ -1,0 +1,413 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""
+JarvisCO Autonomous Agent
+
+Autonomous agent for the JarvisCO intelligent automation platform.
+Executes tasks, manages workflows, and orchestrates operations.
+
+Author: JarvisCO
+Date: 2025-12-30
+"""
+
+import logging
+import asyncio
+import json
+from typing import Optional, Dict, List, Any, Callable
+from dataclasses import dataclass, field
+from enum import Enum
+from datetime import datetime
+
+from jarvisco.mistral_llm import MistralLLM, IntentAnalysis
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+
+class TaskStatus(Enum):
+    """Task execution status."""
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+
+class TaskPriority(Enum):
+    """Task priority levels."""
+    LOW = 1
+    NORMAL = 2
+    HIGH = 3
+    CRITICAL = 4
+
+
+@dataclass
+class Task:
+    """Represents a task to be executed."""
+    id: str
+    description: str
+    intent: Optional[IntentAnalysis] = None
+    priority: TaskPriority = TaskPriority.NORMAL
+    status: TaskStatus = TaskStatus.PENDING
+    result: Optional[str] = None
+    error: Optional[str] = None
+    created_at: datetime = field(default_factory=datetime.now)
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    retry_count: int = 0
+    max_retries: int = 3
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert task to dictionary."""
+        return {
+            "id": self.id,
+            "description": self.description,
+            "priority": self.priority.name,
+            "status": self.status.value,
+            "result": self.result,
+            "error": self.error,
+            "created_at": self.created_at.isoformat(),
+            "started_at": self.started_at.isoformat() if self.started_at else None,
+            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+            "retry_count": self.retry_count,
+            "metadata": self.metadata
+        }
+
+
+class WorkflowStep:
+    """Represents a step in a workflow."""
+    
+    def __init__(
+        self,
+        name: str,
+        action: Callable,
+        condition: Optional[Callable] = None,
+        on_success: Optional[Callable] = None,
+        on_failure: Optional[Callable] = None
+    ):
+        """Initialize workflow step."""
+        self.name = name
+        self.action = action
+        self.condition = condition
+        self.on_success = on_success
+        self.on_failure = on_failure
+        self.status = TaskStatus.PENDING
+        self.result = None
+        self.error = None
+    
+    async def execute(self) -> bool:
+        """Execute workflow step."""
+        try:
+            # Check condition
+            if self.condition:
+                if not await self._run(self.condition):
+                    logger.info(f"Step '{self.name}' condition not met")
+                    return False
+            
+            # Execute action
+            self.status = TaskStatus.RUNNING
+            self.result = await self._run(self.action)
+            self.status = TaskStatus.COMPLETED
+            
+            # Call success callback
+            if self.on_success:
+                await self._run(self.on_success)
+            
+            logger.info(f"Step '{self.name}' completed successfully")
+            return True
+        
+        except Exception as e:
+            logger.error(f"Step '{self.name}' failed: {e}")
+            self.status = TaskStatus.FAILED
+            self.error = str(e)
+            
+            # Call failure callback
+            if self.on_failure:
+                await self._run(self.on_failure)
+            
+            return False
+    
+    @staticmethod
+    async def _run(func: Callable) -> Any:
+        """Run function (sync or async)."""
+        if asyncio.iscoroutinefunction(func):
+            return await func()
+        else:
+            return func()
+
+
+class JarvisAgent:
+    """Autonomous agent for task execution and workflow orchestration."""
+    
+    def __init__(
+        self,
+        name: str = "JarvisAgent",
+        model_name: str = "mistral-7b-instruct",
+        device: str = "auto"
+    ):
+        """Initialize Jarvis agent."""
+        logger.info(f"Initializing agent: {name}")
+        self.name = name
+        self.model_name = model_name
+        self.device = device
+        self.llm: Optional[MistralLLM] = None
+        
+        # Task management
+        self.tasks: Dict[str, Task] = {}
+        self.task_queue: asyncio.Queue = asyncio.Queue()
+        self.completed_tasks: List[Task] = []
+        self.failed_tasks: List[Task] = []
+        
+        # Workflows
+        self.workflows: Dict[str, List[WorkflowStep]] = {}
+        self.active_workflows: Dict[str, bool] = {}
+        
+        # Configuration
+        self.max_concurrent_tasks = 5
+        self.running = False
+    
+    async def initialize(self) -> None:
+        """Initialize agent resources."""
+        try:
+            logger.info("Loading Mistral 7B LLM...")
+            self.llm = MistralLLM(model_name=self.model_name, device=self.device)
+            logger.info("✓ Agent initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize agent: {e}")
+            raise
+    
+    async def shutdown(self) -> None:
+        """Shutdown agent resources."""
+        logger.info("Shutting down agent...")
+        self.running = False
+        if self.llm:
+            del self.llm
+        logger.info("Agent shutdown complete")
+    
+    # ========================================================================
+    # TASK MANAGEMENT
+    # ========================================================================
+    
+    def create_task(
+        self,
+        description: str,
+        priority: TaskPriority = TaskPriority.NORMAL,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> Task:
+        """Create a new task."""
+        task_id = f"task_{len(self.tasks)}_{int(datetime.now().timestamp() * 1000)}"
+        task = Task(
+            id=task_id,
+            description=description,
+            priority=priority,
+            metadata=metadata or {}
+        )
+        
+        self.tasks[task_id] = task
+        logger.info(f"Created task: {task_id}")
+        return task
+    
+    async def submit_task(self, task: Task) -> None:
+        """Submit task for execution."""
+        await self.task_queue.put(task)
+        logger.info(f"Submitted task: {task.id}")
+    
+    async def process_tasks(self) -> None:
+        """Process task queue."""
+        self.running = True
+        active_tasks = []
+        
+        while self.running:
+            try:
+                # Get task from queue (non-blocking with timeout)
+                try:
+                    task = self.task_queue.get_nowait()
+                except asyncio.QueueEmpty:
+                    await asyncio.sleep(0.1)
+                    continue
+                
+                # Wait for slot if at capacity
+                while len(active_tasks) >= self.max_concurrent_tasks:
+                    done_tasks = [t for t in active_tasks if t.done()]
+                    for t in done_tasks:
+                        active_tasks.remove(t)
+                    await asyncio.sleep(0.1)
+                
+                # Create execution task
+                exec_task = asyncio.create_task(self._execute_task(task))
+                active_tasks.append(exec_task)
+            
+            except Exception as e:
+                logger.error(f"Error processing tasks: {e}")
+                await asyncio.sleep(1)
+    
+    async def _execute_task(self, task: Task) -> None:
+        """Execute single task."""
+        try:
+            task.status = TaskStatus.RUNNING
+            task.started_at = datetime.now()
+            
+            logger.info(f"Executing task: {task.id}")
+            
+            # Analyze intent
+            intent = self.llm.analyze_intent(task.description)
+            task.intent = intent
+            
+            # Generate response/action
+            action_prompt = f"You are an autonomous agent. Execute this task: {task.description}"
+            task.result = self.llm.generate(action_prompt)
+            
+            task.status = TaskStatus.COMPLETED
+            task.completed_at = datetime.now()
+            self.completed_tasks.append(task)
+            
+            logger.info(f"Task completed: {task.id}")
+        
+        except Exception as e:
+            logger.error(f"Task failed: {task.id} - {e}")
+            task.error = str(e)
+            task.retry_count += 1
+            
+            if task.retry_count < task.max_retries:
+                logger.info(f"Retrying task {task.id} ({task.retry_count}/{task.max_retries})")
+                await self.submit_task(task)
+            else:
+                task.status = TaskStatus.FAILED
+                task.completed_at = datetime.now()
+                self.failed_tasks.append(task)
+    
+    # ========================================================================
+    # WORKFLOW MANAGEMENT
+    # ========================================================================
+    
+    def register_workflow(self, name: str, steps: List[WorkflowStep]) -> None:
+        """Register a workflow."""
+        self.workflows[name] = steps
+        logger.info(f"Registered workflow: {name} with {len(steps)} steps")
+    
+    async def execute_workflow(self, name: str) -> bool:
+        """Execute a workflow."""
+        if name not in self.workflows:
+            logger.error(f"Workflow not found: {name}")
+            return False
+        
+        logger.info(f"Executing workflow: {name}")
+        self.active_workflows[name] = True
+        
+        try:
+            steps = self.workflows[name]
+            for step in steps:
+                if not self.active_workflows.get(name, False):
+                    logger.info(f"Workflow cancelled: {name}")
+                    return False
+                
+                success = await step.execute()
+                if not success:
+                    logger.error(f"Workflow failed at step: {step.name}")
+                    return False
+            
+            logger.info(f"Workflow completed successfully: {name}")
+            return True
+        
+        finally:
+            self.active_workflows[name] = False
+    
+    # ========================================================================
+    # MONITORING & REPORTING
+    # ========================================================================
+    
+    def get_status(self) -> Dict[str, Any]:
+        """Get agent status."""
+        pending = sum(1 for t in self.tasks.values() if t.status == TaskStatus.PENDING)
+        running = sum(1 for t in self.tasks.values() if t.status == TaskStatus.RUNNING)
+        
+        return {
+            "agent_name": self.name,
+            "running": self.running,
+            "total_tasks": len(self.tasks),
+            "pending_tasks": pending,
+            "running_tasks": running,
+            "completed_tasks": len(self.completed_tasks),
+            "failed_tasks": len(self.failed_tasks),
+            "active_workflows": len([v for v in self.active_workflows.values() if v]),
+            "queue_size": self.task_queue.qsize()
+        }
+    
+    def get_task_history(self, limit: int = 10) -> List[Dict[str, Any]]:
+        """Get recent task history."""
+        all_tasks = list(self.completed_tasks) + list(self.failed_tasks)
+        return [t.to_dict() for t in all_tasks[-limit:]]
+    
+    async def generate_report(self) -> str:
+        """Generate execution report."""
+        status = self.get_status()
+        
+        report = f"""
+╔════════════════════════════════════════════════════════════════╗
+║                    AGENT EXECUTION REPORT                      ║
+╚════════════════════════════════════════════════════════════════╝
+
+Agent: {status['agent_name']}
+Status: {'RUNNING' if status['running'] else 'STOPPED'}
+
+TASK STATISTICS:
+  Total Tasks: {status['total_tasks']}
+  Pending: {status['pending_tasks']}
+  Running: {status['running_tasks']}
+  Completed: {status['completed_tasks']}
+  Failed: {status['failed_tasks']}
+
+WORKFLOW:
+  Active: {status['active_workflows']}
+  Queue Size: {status['queue_size']}
+
+RECENT COMPLETED TASKS:
+"""
+        
+        for task in self.completed_tasks[-5:]:
+            report += f"\n  ✓ {task.id}: {task.description[:50]}..."
+        
+        report += "\n\nRECENT FAILED TASKS:\n"
+        for task in self.failed_tasks[-5:]:
+            report += f"\n  ✗ {task.id}: {task.error}"
+        
+        report += "\n"
+        return report
+
+
+async def main():
+    """Main entry point for agent."""
+    import argparse
+    
+    parser = argparse.ArgumentParser(description="JarvisCO Autonomous Agent")
+    parser.add_argument("--name", default="JarvisAgent", help="Agent name")
+    parser.add_argument("--device", default="auto", help="Device to use")
+    args = parser.parse_args()
+    
+    agent = JarvisAgent(name=args.name, device=args.device)
+    
+    try:
+        # Initialize
+        await agent.initialize()
+        
+        # Example: Create and process tasks
+        logger.info("Agent ready. Waiting for tasks...")
+        
+        # Start task processor
+        await agent.process_tasks()
+    
+    except KeyboardInterrupt:
+        logger.info("Shutting down...")
+    
+    finally:
+        await agent.shutdown()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

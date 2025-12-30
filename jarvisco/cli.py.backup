@@ -1,0 +1,390 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""
+JarvisCO Command Line Interface (CLI)
+
+Interactive CLI for the JarvisCO intelligent automation platform.
+Provides command-line access to Mistral 7B LLM capabilities.
+
+Author: JarvisCO
+Date: 2025-12-30
+"""
+
+import sys
+import argparse
+import logging
+from typing import Optional
+import json
+
+from jarvisco.mistral_llm import MistralLLM, GenerationParameters
+from jarvisco import __version__
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+
+class JarvisConsole:
+    """Interactive console for JarvisCO."""
+    
+    def __init__(self, model_name: str = "mistral-7b-instruct", device: str = "auto"):
+        """Initialize JarvisCO console."""
+        logger.info("Initializing JarvisCO Console...")
+        self.model_name = model_name
+        self.device = device
+        self.llm = None
+        self.history = []
+        self.running = True
+        
+        try:
+            self.llm = MistralLLM(model_name=model_name, device=device)
+            logger.info("✓ Mistral 7B LLM loaded successfully")
+        except Exception as e:
+            logger.error(f"✗ Failed to load LLM: {e}")
+            raise
+    
+    def display_banner(self):
+        """Display welcome banner."""
+        print("""
+╔════════════════════════════════════════════════════════════════╗
+║                      JARVISCO v{}                        ║
+║    Intelligent Automation & Orchestration Platform             ║
+║                  Powered by Mistral 7B                         ║
+╚════════════════════════════════════════════════════════════════╝
+
+Type 'help' for commands, 'exit' to quit.
+        """.format(__version__))
+    
+    def display_help(self):
+        """Display help information."""
+        help_text = """
+╔════════════════════════════════════════════════════════════════╗
+║                    AVAILABLE COMMANDS                          ║
+╚════════════════════════════════════════════════════════════════╝
+
+GENERAL:
+  help                    - Show this help message
+  exit, quit              - Exit JarvisCO
+  clear, cls              - Clear screen
+  version                 - Show version information
+  
+INTERACTION:
+  ask <prompt>            - Ask a question to Mistral 7B
+  generate <prompt>       - Generate text from prompt
+  intent <text>           - Analyze intent of input text
+  stream <prompt>         - Stream generation (token by token)
+  
+CONFIGURATION:
+  params                  - Show current generation parameters
+  set-temp <value>        - Set temperature (0.0-2.0)
+  set-top-p <value>       - Set top-p value (0.0-1.0)
+  set-length <value>      - Set max generation length
+  
+HISTORY:
+  history                 - Show conversation history
+  clear-history           - Clear history
+  save-history <file>     - Save history to file
+  
+ADVANCED:
+  analyze <text>          - Deep analysis of text
+  config                  - Show model configuration
+        """
+        print(help_text)
+    
+    def process_command(self, user_input: str) -> None:
+        """Process user command."""
+        if not user_input.strip():
+            return
+        
+        parts = user_input.strip().split(maxsplit=1)
+        command = parts[0].lower()
+        args = parts[1] if len(parts) > 1 else ""
+        
+        # General commands
+        if command in ["exit", "quit"]:
+            self.running = False
+            print("✓ Goodbye!")
+            return
+        
+        elif command in ["clear", "cls"]:
+            print("\033[2J\033[H", end="")
+            return
+        
+        elif command == "help":
+            self.display_help()
+            return
+        
+        elif command == "version":
+            print(f"JarvisCO v{__version__}")
+            return
+        
+        # LLM interaction commands
+        elif command == "ask":
+            if not args:
+                print("✗ Usage: ask <prompt>")
+                return
+            self.ask(args)
+        
+        elif command == "generate":
+            if not args:
+                print("✗ Usage: generate <prompt>")
+                return
+            self.generate(args)
+        
+        elif command == "stream":
+            if not args:
+                print("✗ Usage: stream <prompt>")
+                return
+            self.stream(args)
+        
+        elif command == "intent":
+            if not args:
+                print("✗ Usage: intent <text>")
+                return
+            self.analyze_intent(args)
+        
+        # Configuration commands
+        elif command == "params":
+            self.show_params()
+        
+        elif command == "set-temp":
+            if not args:
+                print("✗ Usage: set-temp <value>")
+                return
+            try:
+                temp = float(args)
+                self.llm.update_generation_params(temperature=temp)
+                print(f"✓ Temperature set to {temp}")
+            except ValueError:
+                print("✗ Invalid temperature value")
+        
+        elif command == "set-top-p":
+            if not args:
+                print("✗ Usage: set-top-p <value>")
+                return
+            try:
+                top_p = float(args)
+                self.llm.update_generation_params(top_p=top_p)
+                print(f"✓ Top-p set to {top_p}")
+            except ValueError:
+                print("✗ Invalid top-p value")
+        
+        elif command == "set-length":
+            if not args:
+                print("✗ Usage: set-length <value>")
+                return
+            try:
+                length = int(args)
+                self.llm.update_generation_params(max_length=length)
+                print(f"✓ Max length set to {length}")
+            except ValueError:
+                print("✗ Invalid length value")
+        
+        # History commands
+        elif command == "history":
+            self.show_history()
+        
+        elif command == "clear-history":
+            self.history = []
+            print("✓ History cleared")
+        
+        elif command == "save-history":
+            if not args:
+                print("✗ Usage: save-history <file>")
+                return
+            self.save_history(args)
+        
+        # Advanced commands
+        elif command == "analyze":
+            if not args:
+                print("✗ Usage: analyze <text>")
+                return
+            self.analyze_text(args)
+        
+        elif command == "config":
+            self.show_config()
+        
+        else:
+            print(f"✗ Unknown command: {command}. Type 'help' for available commands.")
+    
+    def ask(self, prompt: str) -> None:
+        """Ask a question."""
+        try:
+            print("⏳ Generating response...\n")
+            response = self.llm.generate(prompt)
+            print(f"🤖 Mistral:\n{response}\n")
+            self.history.append({"type": "ask", "prompt": prompt, "response": response})
+        except Exception as e:
+            logger.error(f"Error in ask: {e}")
+            print(f"✗ Error: {e}")
+    
+    def generate(self, prompt: str) -> None:
+        """Generate text from prompt."""
+        try:
+            print("⏳ Generating text...\n")
+            response = self.llm.generate(prompt)
+            print(f"📝 Generated:\n{response}\n")
+            self.history.append({"type": "generate", "prompt": prompt, "response": response})
+        except Exception as e:
+            logger.error(f"Error in generate: {e}")
+            print(f"✗ Error: {e}")
+    
+    def stream(self, prompt: str) -> None:
+        """Stream generation."""
+        try:
+            print("⏳ Streaming generation...\n🤖 ")
+            full_response = ""
+            for token in self.llm.generate_stream(prompt):
+                print(token, end="", flush=True)
+                full_response += token
+            print("\n")
+            self.history.append({"type": "stream", "prompt": prompt, "response": full_response})
+        except Exception as e:
+            logger.error(f"Error in stream: {e}")
+            print(f"✗ Error: {e}")
+    
+    def analyze_intent(self, text: str) -> None:
+        """Analyze intent of text."""
+        try:
+            intent = self.llm.analyze_intent(text)
+            print(f"📊 Intent Analysis:")
+            print(f"   Primary Intent: {intent.primary_intent}")
+            print(f"   Confidence: {intent.confidence:.2%}")
+            print(f"   Sentiment: {intent.sentiment}")
+            print(f"   Requires Action: {intent.requires_action}")
+            if intent.action_type:
+                print(f"   Action Type: {intent.action_type}")
+            print()
+        except Exception as e:
+            logger.error(f"Error in intent analysis: {e}")
+            print(f"✗ Error: {e}")
+    
+    def analyze_text(self, text: str) -> None:
+        """Deep analysis of text."""
+        try:
+            print("📊 Analyzing text...\n")
+            analysis_prompt = f"Analyze the following text in detail:\n\n{text}\n\nProvide structure, themes, and insights."
+            response = self.llm.generate(analysis_prompt)
+            print(f"📋 Analysis:\n{response}\n")
+        except Exception as e:
+            logger.error(f"Error in analyze: {e}")
+            print(f"✗ Error: {e}")
+    
+    def show_params(self) -> None:
+        """Show current parameters."""
+        params = self.llm.generation_params.to_dict()
+        print("\n📋 Current Generation Parameters:")
+        for key, value in params.items():
+            print(f"   {key}: {value}")
+        print()
+    
+    def show_config(self) -> None:
+        """Show model configuration."""
+        print("\n⚙️ Model Configuration:")
+        print(f"   Model: {self.llm.model_name}")
+        print(f"   Device: {self.llm.device}")
+        print(f"   Data Type: {self.llm.dtype}")
+        print(f"   Load in 8-bit: {self.llm.load_in_8bit}")
+        print(f"   Load in 4-bit: {self.llm.load_in_4bit}")
+        print()
+    
+    def show_history(self) -> None:
+        """Show conversation history."""
+        if not self.history:
+            print("📭 No history yet.\n")
+            return
+        
+        print("\n📜 Conversation History:")
+        for i, entry in enumerate(self.history, 1):
+            print(f"\n[{i}] {entry['type'].upper()}")
+            print(f"    Prompt: {entry['prompt'][:100]}...")
+            print(f"    Response: {entry['response'][:100]}...")
+        print()
+    
+    def save_history(self, filepath: str) -> None:
+        """Save history to file."""
+        try:
+            with open(filepath, 'w') as f:
+                json.dump(self.history, f, indent=2)
+            print(f"✓ History saved to {filepath}")
+        except Exception as e:
+            logger.error(f"Error saving history: {e}")
+            print(f"✗ Error: {e}")
+    
+    def run(self):
+        """Run interactive console."""
+        self.display_banner()
+        
+        try:
+            while self.running:
+                try:
+                    user_input = input("jarvisco> ").strip()
+                    if user_input:
+                        self.process_command(user_input)
+                except KeyboardInterrupt:
+                    print("\n\n^C - Exiting...")
+                    break
+                except Exception as e:
+                    logger.error(f"Unexpected error: {e}")
+                    print(f"✗ Error: {e}")
+        except EOFError:
+            print("\n✓ Goodbye!")
+        finally:
+            logger.info("JarvisCO console closed")
+
+
+def main():
+    """Main entry point."""
+    parser = argparse.ArgumentParser(
+        description="JarvisCO - Intelligent Automation & Orchestration Platform",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    
+    parser.add_argument(
+        "--model",
+        default="mistral-7b-instruct",
+        help="Model to use (default: mistral-7b-instruct)"
+    )
+    
+    parser.add_argument(
+        "--device",
+        default="auto",
+        choices=["auto", "cuda", "cpu", "mps"],
+        help="Device to use (default: auto)"
+    )
+    
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Enable verbose logging"
+    )
+    
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"JarvisCO {__version__}"
+    )
+    
+    args = parser.parse_args()
+    
+    if args.verbose:
+        logging.getLogger().setLevel(logging.DEBUG)
+    
+    try:
+        console = JarvisConsole(model_name=args.model, device=args.device)
+        console.run()
+    except KeyboardInterrupt:
+        print("\n\n✓ Goodbye!")
+        sys.exit(0)
+    except Exception as e:
+        logger.error(f"Fatal error: {e}")
+        print(f"✗ Fatal error: {e}")
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

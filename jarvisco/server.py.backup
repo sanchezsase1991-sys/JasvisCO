@@ -1,0 +1,337 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""
+JarvisCO API Server
+
+FastAPI server for the JarvisCO intelligent automation platform.
+Exposes Mistral 7B LLM capabilities through RESTful endpoints.
+
+Author: JarvisCO
+Date: 2025-12-30
+"""
+
+import logging
+from contextlib import asynccontextmanager
+from typing import Optional, List
+import uvicorn
+from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
+
+from jarvisco.mistral_llm import MistralLLM, GenerationParameters, IntentAnalysis
+from jarvisco import __version__
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+# Global LLM instance
+llm_instance: Optional[MistralLLM] = None
+
+
+# Pydantic models for API
+class GenerationRequest(BaseModel):
+    """Request model for text generation."""
+    prompt: str = Field(..., description="Input prompt for generation")
+    max_length: Optional[int] = Field(512, description="Maximum output length")
+    temperature: Optional[float] = Field(0.7, description="Sampling temperature")
+    top_p: Optional[float] = Field(0.9, description="Nucleus sampling parameter")
+    top_k: Optional[int] = Field(50, description="Top-k sampling")
+
+
+class GenerationResponse(BaseModel):
+    """Response model for text generation."""
+    prompt: str
+    generated_text: str
+    tokens_generated: int
+    temperature: float
+
+
+class IntentRequest(BaseModel):
+    """Request model for intent analysis."""
+    text: str = Field(..., description="Text to analyze")
+
+
+class IntentResponse(BaseModel):
+    """Response model for intent analysis."""
+    text: str
+    primary_intent: str
+    confidence: float
+    sentiment: str
+    requires_action: bool
+    action_type: Optional[str]
+
+
+class HealthResponse(BaseModel):
+    """Response model for health check."""
+    status: str
+    model: str
+    version: str
+    ready: bool
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan events."""
+    # Startup
+    global llm_instance
+    logger.info("Starting JarvisCO API Server...")
+    try:
+        llm_instance = MistralLLM(model_name="mistral-7b-instruct", device="auto")
+        logger.info("✓ Mistral 7B LLM loaded")
+    except Exception as e:
+        logger.error(f"✗ Failed to load LLM: {e}")
+        raise
+    
+    yield
+    
+    # Shutdown
+    logger.info("Shutting down JarvisCO API Server...")
+    if llm_instance:
+        del llm_instance
+
+
+# Create FastAPI app
+app = FastAPI(
+    title="JarvisCO API",
+    description="Intelligent Automation & Orchestration Platform API",
+    version=__version__,
+    lifespan=lifespan
+)
+
+
+# ============================================================================
+# HEALTH & INFO ENDPOINTS
+# ============================================================================
+
+@app.get("/health", response_model=HealthResponse)
+async def health_check():
+    """Check API and model health."""
+    return HealthResponse(
+        status="healthy",
+        model="mistral-7b-instruct",
+        version=__version__,
+        ready=llm_instance is not None
+    )
+
+
+@app.get("/info")
+async def info():
+    """Get API and model information."""
+    return {
+        "name": "JarvisCO",
+        "version": __version__,
+        "description": "Intelligent Automation & Orchestration Platform",
+        "model": "Mistral-7B-Instruct",
+        "endpoints": {
+            "health": "/health",
+            "generate": "/generate",
+            "stream": "/stream",
+            "intent": "/intent",
+            "params": "/params"
+        }
+    }
+
+
+# ============================================================================
+# TEXT GENERATION ENDPOINTS
+# ============================================================================
+
+@app.post("/generate", response_model=GenerationResponse)
+async def generate(request: GenerationRequest):
+    """Generate text from prompt."""
+    if not llm_instance:
+        raise HTTPException(status_code=503, detail="Model not loaded")
+    
+    try:
+        # Update parameters if provided
+        if request.max_length:
+            llm_instance.update_generation_params(max_length=request.max_length)
+        if request.temperature:
+            llm_instance.update_generation_params(temperature=request.temperature)
+        if request.top_p:
+            llm_instance.update_generation_params(top_p=request.top_p)
+        if request.top_k:
+            llm_instance.update_generation_params(top_k=request.top_k)
+        
+        # Generate
+        generated_text = llm_instance.generate(request.prompt)
+        
+        return GenerationResponse(
+            prompt=request.prompt,
+            generated_text=generated_text,
+            tokens_generated=len(generated_text.split()),
+            temperature=request.temperature or 0.7
+        )
+    
+    except Exception as e:
+        logger.error(f"Generation error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/stream")
+async def stream(request: GenerationRequest):
+    """Stream text generation (token by token)."""
+    if not llm_instance:
+        raise HTTPException(status_code=503, detail="Model not loaded")
+    
+    async def generate_stream():
+        try:
+            # Update parameters if provided
+            if request.temperature:
+                llm_instance.update_generation_params(temperature=request.temperature)
+            if request.top_p:
+                llm_instance.update_generation_params(top_p=request.top_p)
+            
+            for token in llm_instance.generate_stream(request.prompt):
+                yield token.encode() + b"\n"
+        
+        except Exception as e:
+            logger.error(f"Stream error: {e}")
+            yield f"ERROR: {str(e)}".encode()
+    
+    return StreamingResponse(generate_stream(), media_type="text/event-stream")
+
+
+# ============================================================================
+# INTENT ANALYSIS ENDPOINTS
+# ============================================================================
+
+@app.post("/intent", response_model=IntentResponse)
+async def analyze_intent(request: IntentRequest):
+    """Analyze intent of input text."""
+    if not llm_instance:
+        raise HTTPException(status_code=503, detail="Model not loaded")
+    
+    try:
+        intent = llm_instance.analyze_intent(request.text)
+        
+        return IntentResponse(
+            text=request.text,
+            primary_intent=intent.primary_intent,
+            confidence=intent.confidence,
+            sentiment=intent.sentiment,
+            requires_action=intent.requires_action,
+            action_type=intent.action_type
+        )
+    
+    except Exception as e:
+        logger.error(f"Intent analysis error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================================
+# CONFIGURATION ENDPOINTS
+# ============================================================================
+
+@app.get("/params")
+async def get_params():
+    """Get current generation parameters."""
+    if not llm_instance:
+        raise HTTPException(status_code=503, detail="Model not loaded")
+    
+    return llm_instance.generation_params.to_dict()
+
+
+@app.post("/params")
+async def update_params(params: dict):
+    """Update generation parameters."""
+    if not llm_instance:
+        raise HTTPException(status_code=503, detail="Model not loaded")
+    
+    try:
+        llm_instance.update_generation_params(**params)
+        return {"status": "updated", "params": llm_instance.generation_params.to_dict()}
+    except Exception as e:
+        logger.error(f"Parameter update error: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+# ============================================================================
+# ERROR HANDLERS
+# ============================================================================
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request, exc):
+    """Handle HTTP exceptions."""
+    logger.error(f"HTTP exception: {exc.detail}")
+    return {
+        "error": exc.detail,
+        "status_code": exc.status_code
+    }
+
+
+@app.exception_handler(Exception)
+async def general_exception_handler(request, exc):
+    """Handle general exceptions."""
+    logger.error(f"Unhandled exception: {exc}")
+    return {
+        "error": "Internal server error",
+        "status_code": 500
+    }
+
+
+def main():
+    """Main entry point."""
+    import argparse
+    
+    parser = argparse.ArgumentParser(
+        description="JarvisCO API Server",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    
+    parser.add_argument(
+        "--host",
+        default="0.0.0.0",
+        help="Server host (default: 0.0.0.0)"
+    )
+    
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=8000,
+        help="Server port (default: 8000)"
+    )
+    
+    parser.add_argument(
+        "--reload",
+        action="store_true",
+        help="Enable auto-reload on code changes"
+    )
+    
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        help="Number of worker processes (default: 1)"
+    )
+    
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Enable verbose logging"
+    )
+    
+    args = parser.parse_args()
+    
+    if args.verbose:
+        logging.getLogger().setLevel(logging.DEBUG)
+    
+    logger.info(f"Starting JarvisCO API Server on {args.host}:{args.port}")
+    logger.info(f"Documentation available at http://{args.host}:{args.port}/docs")
+    
+    uvicorn.run(
+        "jarvisco.server:app",
+        host=args.host,
+        port=args.port,
+        reload=args.reload,
+        workers=args.workers
+    )
+
+
+if __name__ == "__main__":
+    main()

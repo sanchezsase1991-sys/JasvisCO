@@ -18,16 +18,16 @@ with open("requirements.txt", "r", encoding="utf-8") as fh:
 
 setup(
     name="JarvisCO",
-    version="0.1.0",
+    version="1.0.0",
     author="s29268979-boop",
     author_email="dev@jarvisco.local",
-    description="Intelligent automation and orchestration platform for workflow management",
+    description="Copilot-Level Code Analysis, Reasoning & Transformation Engine",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/s29268979-boop/jarvisCO",
+    url="https://github.com/s29268979-boop/JarvisCO",
     project_urls={
-        "Bug Tracker": "https://github.com/s29268979-boop/jarvisCO/issues",
-        "Documentation": "https://github.com/s29268979-boop/jarvisCO/wiki",
+        "Bug Tracker": "https://github.com/s29268979-boop/JarvisCO/issues",
+        "Documentation": "https://github.com/s29268979-boop/JarvisCO/wiki",
         "Source Code": "https://github.com/s29268979-boop/jarvisCO",
     },
     packages=find_packages(where="src"),

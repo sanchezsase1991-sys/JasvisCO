@@ -21,28 +21,38 @@ logger = logging.getLogger(__name__)
 
 # Import core modules
 try:
-    from jarvisco.config import Config
-    from jarvisco.mistral_llm import MistralLLM
-    from jarvisco.rosa_enlg import RosaENLG
-    from jarvisco.fusion_engine import FusionEngine
-    from jarvisco.prompt_manager import PromptManager
-    from jarvisco.system_tools import SystemTools
-    from jarvisco.code_analyzer import CodeAnalyzer
-    from jarvisco.project_setup import ProjectSetup
+    from jarvisco.mistral_llm import MistralLLM, GenerationParameters, IntentAnalysis
+    from jarvisco.analyzer import CodeAnalyzer, CodeEntity, CodeIssue
+    from jarvisco.reasoner import CodeReasoner, TransformationType, TransformationResult
+    from jarvisco.formatter import OutputFormatter, format_code_analysis, format_report
+    from jarvisco.cli import JarvisConsole
+    from jarvisco.server import app as server_app
+    from jarvisco.agent import JarvisAgent, Task, TaskStatus, TaskPriority, WorkflowStep
     
-    logger.info(f"JarvisCO v{__version__} initialized successfully")
+    logger.info(f"JarvisCO v{__version__} (Copilot-Level) initialized successfully")
 except ImportError as e:
-    logger.warning(f"Failed to import some core modules: {e}")
+    logger.warning(f"Failed to import some modules: {e}")
 
 # Define public API
 __all__: List[str] = [
-    "Config",
     "MistralLLM",
-    "RosaENLG",
-    "FusionEngine",
-    "PromptManager",
-    "SystemTools",
+    "GenerationParameters",
+    "IntentAnalysis",
     "CodeAnalyzer",
-    "ProjectSetup",
+    "CodeEntity",
+    "CodeIssue",
+    "CodeReasoner",
+    "TransformationType",
+    "TransformationResult",
+    "OutputFormatter",
+    "format_code_analysis",
+    "format_report",
+    "JarvisConsole",
+    "server_app",
+    "JarvisAgent",
+    "Task",
+    "TaskStatus",
+    "TaskPriority",
+    "WorkflowStep",
     "__version__",
 ]
