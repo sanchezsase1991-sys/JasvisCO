@@ -1,11 +1,13 @@
 # Core LLM and Language Model Libraries
-llama-cpp-python==0.2.77
-mistral-common==0.0.12
-mistralai==0.1.11
+llama-cpp-python>=0.2.0
+mistral-common>=1.0.0
+mistralai>=0.1.0
+transformers>=4.30.0
+torch>=2.0.0
 
 # Optimization and Performance
-optimum==1.18.0
-quantization==1.0.0
+optimum>=1.18.0
+quantization>=1.0.0
 
 # NLG and Text Generation
 rosaenlg==1.5.2

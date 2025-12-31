@@ -249,8 +249,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 👤 Author
 
-**s29268979-boop**
-- GitHub: [@s29268979-boop](https://github.com/s29268979-boop)
+**sanchezsase1991-sys**
+- GitHub: [@sanchezsase1991-sys](https://github.com/sanchezsase1991-sys)
 - Email: dev@jarvisco.local
 
 ## 🙏 Acknowledgments
@@ -262,11 +262,38 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 📞 Support
 
 For issues, questions, or suggestions:
-1. Check [existing issues](https://github.com/s29268979-boop/JarvisCO/issues)
-2. Create a [new issue](https://github.com/s29268979-boop/JarvisCO/issues/new)
-3. Start a [discussion](https://github.com/s29268979-boop/JarvisCO/discussions)
+1. Check [existing issues](https://github.com/sanchezsase1991-sys/JasvisCO/issues)
+2. Create a [new issue](https://github.com/sanchezsase1991-sys/JasvisCO/issues/new)
+3. Start a [discussion](https://github.com/sanchezsase1991-sys/JasvisCO/discussions)
+
+---
+
+## 🇪🇸 Guía en Español / Spanish Guide
+
+**¿Cómo ejecuto JarvisCO?** / **How do I run JarvisCO?**
+
+📖 **[INICIO_RAPIDO.md](INICIO_RAPIDO.md)** - Guía de inicio en 5 minutos (español)
+
+📖 **[COMO_EJECUTAR.md](COMO_EJECUTAR.md)** - Guía completa de instalación y ejecución (español)
+
+### Inicio Rápido / Quick Start (ES)
+
+```bash
+# 1. Instalar dependencias
+pip install -r requirements.txt
+
+# 2. Instalar JarvisCO
+pip install -e .
+
+# 3. Verificar instalación / Verify installation
+python3 quick_start.py
+
+# 4. Ejecutar / Run
+jarvisco --help                    # Ver ayuda
+jarvisco analyze archivo.py        # Analizar código
+jarvisco-server                    # Iniciar servidor API
+```
 
 ---
 
 **Made with ❤️ for developers who want intelligent code assistance.**
-# JasvisCO
