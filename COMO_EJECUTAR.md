@@ -1,5 +1,26 @@
 # Cómo Ejecutar JarvisCO
 
+## 🎯 Inicio Rápido
+
+**¿Primera vez usando JarvisCO?** Ejecuta:
+
+```bash
+python3 quick_start.py
+```
+
+Este script te mostrará:
+- ✓ Estado de instalación
+- ✓ Comandos disponibles  
+- ✓ Ejemplos de uso
+- ✓ Próximos pasos
+
+Para crear un archivo de ejemplo y probarlo:
+```bash
+python3 quick_start.py --create-example
+```
+
+---
+
 ## 📋 Tabla de Contenidos
 1. [Requisitos Previos](#requisitos-previos)
 2. [Instalación](#instalación)

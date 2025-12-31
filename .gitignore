@@ -112,3 +112,7 @@ jarvisco/*.backup
 jarvisco/agent.py.backup
 jarvisco/server.py.backup
 jarvisco/cli.py.backup
+
+# Example files created by quick_start.py
+ejemplo_codigo.py
+example_code.py
