@@ -12,6 +12,7 @@ all heavy dependencies like PyTorch or Transformers.
 
 import sys
 import argparse
+import shutil
 from pathlib import Path
 
 def print_banner():
@@ -43,13 +44,12 @@ def show_installation_status():
         package_ok = False
     
     # Check for commands
-    import subprocess
     commands = ["jarvisco", "jarvisco-server", "jarvisco-agent"]
     commands_ok = True
     
     for cmd in commands:
-        result = subprocess.run(["which", cmd], capture_output=True, text=True)
-        if result.returncode == 0:
+        cmd_path = shutil.which(cmd)
+        if cmd_path:
             print(f"✓ Comando {cmd}: Disponible")
         else:
             print(f"✗ Comando {cmd}: No disponible")

@@ -9,6 +9,7 @@ This script verifies that JarvisCO is correctly installed.
 
 import sys
 import subprocess
+import shutil
 from pathlib import Path
 
 def print_header(text):
@@ -52,9 +53,9 @@ def check_commands():
     all_found = True
     
     for cmd in commands:
-        result = subprocess.run(["which", cmd], capture_output=True, text=True)
-        if result.returncode == 0:
-            print(f"✓ {cmd}: {result.stdout.strip()}")
+        cmd_path = shutil.which(cmd)
+        if cmd_path:
+            print(f"✓ {cmd}: {cmd_path}")
         else:
             print(f"✗ {cmd}: No encontrado / Not found")
             all_found = False

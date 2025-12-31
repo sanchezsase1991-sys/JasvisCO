@@ -249,8 +249,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 👤 Author
 
-**s29268979-boop**
-- GitHub: [@s29268979-boop](https://github.com/s29268979-boop)
+**sanchezsase1991-sys**
+- GitHub: [@sanchezsase1991-sys](https://github.com/sanchezsase1991-sys)
 - Email: dev@jarvisco.local
 
 ## 🙏 Acknowledgments
@@ -262,9 +262,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 📞 Support
 
 For issues, questions, or suggestions:
-1. Check [existing issues](https://github.com/s29268979-boop/JarvisCO/issues)
-2. Create a [new issue](https://github.com/s29268979-boop/JarvisCO/issues/new)
-3. Start a [discussion](https://github.com/s29268979-boop/JarvisCO/discussions)
+1. Check [existing issues](https://github.com/sanchezsase1991-sys/JasvisCO/issues)
+2. Create a [new issue](https://github.com/sanchezsase1991-sys/JasvisCO/issues/new)
+3. Start a [discussion](https://github.com/sanchezsase1991-sys/JasvisCO/discussions)
 
 ---
 
