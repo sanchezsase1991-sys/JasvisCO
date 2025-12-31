@@ -25,9 +25,9 @@ try:
     from jarvisco.analyzer import CodeAnalyzer, CodeEntity, CodeIssue
     from jarvisco.reasoner import CodeReasoner, TransformationType, TransformationResult
     from jarvisco.formatter import OutputFormatter, format_code_analysis, format_report
-    from jarvisco.cli import JarvisConsole
+    from jarvisco.cli import JarvisoCLI
     from jarvisco.server import app as server_app
-    from jarvisco.agent import JarvisAgent, Task, TaskStatus, TaskPriority, WorkflowStep
+    from jarvisco.agent import CodeReasoningAgent, CodeTask, TaskStatus, TaskPriority
     
     logger.info(f"JarvisCO v{__version__} (Copilot-Level) initialized successfully")
 except ImportError as e:
@@ -47,12 +47,11 @@ __all__: List[str] = [
     "OutputFormatter",
     "format_code_analysis",
     "format_report",
-    "JarvisConsole",
+    "JarvisoCLI",
     "server_app",
-    "JarvisAgent",
-    "Task",
+    "CodeReasoningAgent",
+    "CodeTask",
     "TaskStatus",
     "TaskPriority",
-    "WorkflowStep",
     "__version__",
 ]
