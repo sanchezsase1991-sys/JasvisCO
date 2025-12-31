@@ -54,10 +54,23 @@ pip install JarvisCO
 Después de instalar, verifica que los comandos estén disponibles:
 
 ```bash
+# Verificar versión
 jarvisco --version
+
+# Ver ayuda de los comandos
 jarvisco-server --help
 jarvisco-agent --help
+
+# Ejecutar script de verificación completo
+python3 verify_installation.py
 ```
+
+El script `verify_installation.py` verificará:
+- ✓ Versión de Python (3.8+)
+- ✓ Paquete JarvisCO instalado
+- ✓ Comandos disponibles (jarvisco, jarvisco-server, jarvisco-agent)
+- ✓ Dependencias instaladas
+- ✓ Estructura del proyecto
 
 ---
 
@@ -234,6 +247,16 @@ curl -X POST http://localhost:8000/generate \
 ---
 
 ## 🛠️ Solución de Problemas
+
+### Script de Verificación Rápida
+
+Ejecuta el script de verificación para diagnosticar problemas de instalación:
+
+```bash
+python3 verify_installation.py
+```
+
+Este script te mostrará exactamente qué está instalado y qué falta.
 
 ### Problema: Comando `jarvisco` no encontrado
 
