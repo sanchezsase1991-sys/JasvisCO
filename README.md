@@ -268,5 +268,28 @@ For issues, questions, or suggestions:
 
 ---
 
+## 🇪🇸 Guía en Español / Spanish Guide
+
+**¿Cómo ejecuto JarvisCO?** / **How do I run JarvisCO?**
+
+Para instrucciones detalladas en español sobre cómo instalar y ejecutar JarvisCO, consulta:
+📖 **[COMO_EJECUTAR.md](COMO_EJECUTAR.md)** - Guía completa de instalación y ejecución en español
+
+### Inicio Rápido / Quick Start (ES)
+
+```bash
+# 1. Instalar dependencias
+pip install -r requirements.txt
+
+# 2. Instalar JarvisCO
+pip install -e .
+
+# 3. Ejecutar / Run
+jarvisco --help                    # Ver ayuda
+jarvisco analyze archivo.py        # Analizar código
+jarvisco-server                    # Iniciar servidor API
+```
+
+---
+
 **Made with ❤️ for developers who want intelligent code assistance.**
-# JasvisCO

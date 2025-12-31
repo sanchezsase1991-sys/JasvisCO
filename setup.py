@@ -30,8 +30,7 @@ setup(
         "Documentation": "https://github.com/s29268979-boop/JarvisCO/wiki",
         "Source Code": "https://github.com/s29268979-boop/jarvisCO",
     },
-    packages=find_packages(where="src"),
-    package_dir={"": "src"},
+    packages=find_packages(exclude=["tests", "*.tests", "*.tests.*", "tests.*"]),
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Developers",
