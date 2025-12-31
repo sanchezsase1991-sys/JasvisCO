@@ -1,5 +1,7 @@
 # Cómo Ejecutar JarvisCO
 
+> **¿Buscas una guía rápida?** Consulta **[INICIO_RAPIDO.md](INICIO_RAPIDO.md)** para comenzar en 5 minutos.
+
 ## 🎯 Inicio Rápido
 
 **¿Primera vez usando JarvisCO?** Ejecuta:

@@ -272,8 +272,9 @@ For issues, questions, or suggestions:
 
 **¿Cómo ejecuto JarvisCO?** / **How do I run JarvisCO?**
 
-Para instrucciones detalladas en español sobre cómo instalar y ejecutar JarvisCO, consulta:
-📖 **[COMO_EJECUTAR.md](COMO_EJECUTAR.md)** - Guía completa de instalación y ejecución en español
+📖 **[INICIO_RAPIDO.md](INICIO_RAPIDO.md)** - Guía de inicio en 5 minutos (español)
+
+📖 **[COMO_EJECUTAR.md](COMO_EJECUTAR.md)** - Guía completa de instalación y ejecución (español)
 
 ### Inicio Rápido / Quick Start (ES)
 
@@ -284,7 +285,10 @@ pip install -r requirements.txt
 # 2. Instalar JarvisCO
 pip install -e .
 
-# 3. Ejecutar / Run
+# 3. Verificar instalación / Verify installation
+python3 quick_start.py
+
+# 4. Ejecutar / Run
 jarvisco --help                    # Ver ayuda
 jarvisco analyze archivo.py        # Analizar código
 jarvisco-server                    # Iniciar servidor API
